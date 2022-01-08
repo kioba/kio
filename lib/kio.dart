@@ -17,32 +17,36 @@ import 'package:tuple/tuple.dart';
 /// Stack safety
 
 /// program runtime base class
-abstract class Kio<A> {
-  static Kio<A> async<A>(Function(Function(A)) register) => _Async(register);
+abstract class Kio<E, A> {
+  static Kio<E, A> async<E, A>(Function(Function(A)) register) =>
+      _Async(register);
 
   /// successful program
-  static Kio<A> succeedNow<A>(A value) => _Succeed(value);
+  static Kio<E, A> succeedNow<E, A>(A value) => _Succeed(value);
 
   /// successful delayed program
-  static Kio<A> succeed<A>(A Function() value) =>
-      succeedNow(Object()).map((_) => value());
+  static Kio<E, A> succeed<E, A>(A Function() value) =>
+      succeedNow<E, Object>(Object()).map((p0) => value());
 
   /// zip two program
-  static Kio<Tuple2<A, B>> zip<A, B>(Kio<A> first, Kio<B> second) =>
+  static Kio<E, Tuple2<A, B>> zip<E, A, B>(
+    Kio<E, A> first,
+    Kio<E, B> second,
+  ) =>
       first.flatMap((p0) => second.map((p1) => Tuple2(p0, p1)));
 
-  Kio<B> map<B>(B Function(A) f) => flatMap((p0) => succeedNow(f(p0)));
+  Kio<E, B> map<B>(B Function(A) f) => flatMap((p0) => succeedNow(f(p0)));
 
-  Kio<B> flatMap<B>(Kio<B> Function(A) f) => _FlatMap(this, f);
+  Kio<E, B> flatMap<B>(Kio<E, B> Function(A) f) => _FlatMap(this, f);
 
-  Kio<Tuple2<A, B>> zipWith<B>(Kio<B> that) => zip(this, that);
+  Kio<E, Tuple2<A, B>> zipWith<B>(Kio<E, B> that) => zip(this, that);
 
-  Kio<B> as<B>(B Function() f) => map((_) => f());
+  Kio<E, B> as<B>(B Function() f) => map((_) => f());
 
   void run(void Function(A) callback);
 }
 
-class _Async<A> extends Kio<A> {
+class _Async<E, A> extends Kio<E, A> {
   final Function(Function(A)) register;
 
   _Async(this.register);
@@ -53,23 +57,23 @@ class _Async<A> extends Kio<A> {
   }
 }
 
-class Fiber<A> {}
+class Fiber<E, A> {}
 
-class _FlatMap<A, B> extends Kio<B> {
-  final Kio<A> rope;
-  final Kio<B> Function(A) f;
+class _FlatMap<E, A, B> extends Kio<E, B> {
+  final Kio<E, A> kio;
+  final Kio<E, B> Function(A) f;
 
-  _FlatMap(this.rope, this.f);
+  _FlatMap(this.kio, this.f);
 
   @override
   void run(void Function(B p1) callback) {
-    rope.run((p0) {
+    kio.run((p0) {
       f(p0).run(callback);
     });
   }
 }
 
-class _Succeed<A> extends Kio<A> {
+class _Succeed<E, A> extends Kio<E, A> {
   final A value;
 
   _Succeed(this.value);
