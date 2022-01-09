@@ -17,19 +17,21 @@ import 'package:tuple/tuple.dart';
 /// Stack safety
 
 /// program runtime base class
-abstract class Kio<E, A> {
-  static Kio<E, A> async<E, A>(Function(Function(A)) register) =>
+abstract class Kio<E extends Object, A> {
+  static Kio<E, A> async<E extends Object, A>(Function(Function(A)) register) =>
       _Async(register);
 
   /// successful program
-  static Kio<E, A> succeedNow<E, A>(A value) => _Succeed(value);
+  static Kio<E, A> succeedNow<E extends Object, A>(A value) => _Succeed(value);
+
+  static Kio<E, Never> fail<E extends Object>(E failure) => _Failed(failure);
 
   /// successful delayed program
-  static Kio<E, A> succeed<E, A>(A Function() value) =>
+  static Kio<E, A> succeed<E extends Object, A>(A Function() value) =>
       succeedNow<E, Object>(Object()).map((p0) => value());
 
   /// zip two program
-  static Kio<E, Tuple2<A, B>> zip<E, A, B>(
+  static Kio<E, Tuple2<A, B>> zip<E extends Object, A, B>(
     Kio<E, A> first,
     Kio<E, B> second,
   ) =>
@@ -46,7 +48,7 @@ abstract class Kio<E, A> {
   void run(void Function(A) callback);
 }
 
-class _Async<E, A> extends Kio<E, A> {
+class _Async<E extends Object, A> extends Kio<E, A> {
   final Function(Function(A)) register;
 
   _Async(this.register);
@@ -57,9 +59,9 @@ class _Async<E, A> extends Kio<E, A> {
   }
 }
 
-class Fiber<E, A> {}
+class Fiber<E extends Object, A> {}
 
-class _FlatMap<E, A, B> extends Kio<E, B> {
+class _FlatMap<E extends Object, A, B> extends Kio<E, B> {
   final Kio<E, A> kio;
   final Kio<E, B> Function(A) f;
 
@@ -73,7 +75,7 @@ class _FlatMap<E, A, B> extends Kio<E, B> {
   }
 }
 
-class _Succeed<E, A> extends Kio<E, A> {
+class _Succeed<E extends Object, A> extends Kio<E, A> {
   final A value;
 
   _Succeed(this.value);
@@ -81,5 +83,17 @@ class _Succeed<E, A> extends Kio<E, A> {
   @override
   void run(void Function(A) callback) {
     callback(value);
+  }
+}
+
+class _Failed<E extends Object> extends Kio<E, Never> {
+  final E failure;
+
+  _Failed(this.failure);
+
+  @override
+  void run(void Function(Never p1) callback) {
+    // TODO: fix with stack safety
+    throw failure;
   }
 }
